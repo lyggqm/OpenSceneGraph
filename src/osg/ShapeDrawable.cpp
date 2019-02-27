@@ -13,14 +13,17 @@
 #include <osg/ShapeDrawable>
 #include <osg/GL>
 #include <osg/Notify>
+#include <osg/KdTree>
 
 using namespace osg;
 
-ShapeDrawable::ShapeDrawable()
+ShapeDrawable::ShapeDrawable():
+    _color(1.0f, 1.0f, 1.0f, 1.0f)
 {
 }
 
 ShapeDrawable::ShapeDrawable(Shape* shape,TessellationHints* hints):
+    _color(1.0f, 1.0f, 1.0f, 1.0f),
     _tessellationHints(hints)
 {
     setShape(shape);
@@ -49,8 +52,6 @@ void ShapeDrawable::setShape(Shape* shape)
 
 void ShapeDrawable::setColor(const Vec4& color)
 {
-    if (color==_color) return;
-
     _color = color;
 
     Vec4Array* colors = dynamic_cast<Vec4Array*>(_colorArray.get());
@@ -76,6 +77,9 @@ void ShapeDrawable::setTessellationHints(TessellationHints* hints)
 
 void ShapeDrawable::build()
 {
+    // we can't create a tessellation for a KdTree
+    if (dynamic_cast<KdTree*>(_shape.get())!=0) return;
+
     // reset all the properties.
     setVertexArray(0);
     setNormalArray(0);
@@ -91,4 +95,6 @@ void ShapeDrawable::build()
         BuildShapeGeometryVisitor dsv(this, _tessellationHints.get());
         _shape->accept(dsv);
     }
+
+    setColor(_color);
 }

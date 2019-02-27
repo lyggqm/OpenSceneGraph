@@ -74,7 +74,6 @@
 #include<osg/PrimitiveSet>
 #include <osg/MatrixTransform>
 
-#include <osgUtil/TriStripVisitor>
 #include <osgUtil/SmoothingVisitor>
 
 //#define _LOG_DEBUG_
@@ -123,7 +122,7 @@ osgDB::ReaderWriter::WriteResult ReaderWritterOpenCASCADE::writeNode(const osg::
 
 /// \brief heals a opencascade shape
 /// \detail http://www.opencascade.org/org/forum/thread_12716/?forum=3
-///         Usually IGES files suffer from precision problems (when transfering from
+///         Usually IGES files suffer from precision problems (when transferring from
 ///         one CAD system to another).It might be the case that faces are not sewed
 ///         properly,  or do not have the right precision, and so the tesselator does
 ///         not treat them like "sewed". this needs to be done for sewing
@@ -262,7 +261,7 @@ osg::ref_ptr<osg::Geometry> ReaderWritterOpenCASCADE::OCCTKReader::_createGeomet
             std::cout << "Adding Primitive set" << std::endl;
         #endif
 
-        geom->addPrimitiveSet(triangleStrip);
+        geom->addPrimitiveSet(triangleStrip.get());
     }
 
     return geom;
@@ -322,7 +321,7 @@ osg::ref_ptr<osg::Geode> ReaderWritterOpenCASCADE::OCCTKReader::igesToOSGGeode(c
     _colorTool = XCAFDoc_DocumentTool::ColorTool(doc->Main());
 
     // free shape sequence
-    // get sequence of free shape lables
+    // get sequence of free shape labels
     TDF_LabelSequence freeShapes;
     _assembly->GetFreeShapes(freeShapes);
 

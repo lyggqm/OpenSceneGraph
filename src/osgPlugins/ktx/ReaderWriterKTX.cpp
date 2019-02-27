@@ -333,11 +333,11 @@ osgDB::ReaderWriter::WriteResult ReaderWriterKTX::writeImage(const osg::Image &i
         DELETEFILE(file.c_str());
         OSG_WARN << "ReaderWriterKTX::writeImage Failed to write " << file << "." << std::endl;
     }
-    OSG_INFO << "ReaderWriterKTX::writeImage write " << file << " sucess;" << image.s() << "x" << image.t() << "x" << image.r() << std::endl;
+    OSG_INFO << "ReaderWriterKTX::writeImage write " << file << " success;" << image.s() << "x" << image.t() << "x" << image.r() << std::endl;
     return res;
 }
 
-osgDB::ReaderWriter::WriteResult ReaderWriterKTX::writeImage(const osg::Image& image, std::ostream& fout, const Options* options) const
+osgDB::ReaderWriter::WriteResult ReaderWriterKTX::writeImage(const osg::Image& image, std::ostream& fout, const Options* /*options*/) const
 {
 //    bool noAutoFlipDDSWrite = options && options->getOptionString().find("ddsNoAutoFlipWrite") != std::string::npos; //maybe for ktx too?
     bool success = writeKTXStream(&image, fout);

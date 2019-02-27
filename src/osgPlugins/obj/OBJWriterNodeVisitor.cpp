@@ -69,6 +69,18 @@ class ValueVisitor : public osg::ValueVisitor {
             if (_applyMatrix)  v = (_isNormal) ? (v * _m) - _origin : v * _m;
             _fout << v[0] << ' ' << v[1] << ' ' << v[2];
         }
+    
+        //add Vec3dArray* vertex output to avoid inaccuracy
+        virtual void apply(osg::Vec3d & inv)
+        {
+            osg::Vec3d v(inv[0], inv[1], inv[2]);
+            osg::Vec3d orign_d((double)_origin.x(), (double)_origin.y(), (double)_origin.z());
+            if (_applyMatrix)  v = (_isNormal) ? (v * _m) - orign_d : v * _m;
+
+            //Setting 10-digit Significant Number
+            _fout.precision(10);
+            _fout << v[0] << ' ' << v[1] << ' ' << v[2];
+        }
     private:
 
         ValueVisitor& operator = (const ValueVisitor&) { return *this; }
@@ -546,26 +558,26 @@ void OBJWriterNodeVisitor::processGeometry(osg::Geometry* geo, osg::Matrix& m) {
 
 }
 
+void OBJWriterNodeVisitor::apply(osg::Geometry& geometry)
+{
+    osg::Matrix m = osg::computeLocalToWorld(getNodePath());
+
+    pushStateSet(geometry.getStateSet());
+
+    processGeometry(&geometry,m);
+
+    popStateSet(geometry.getStateSet());
+}
+
 void OBJWriterNodeVisitor::apply( osg::Geode &node )
 {
-
     pushStateSet(node.getStateSet());
     _nameStack.push_back(node.getName());
-    osg::Matrix m = osg::computeLocalToWorld(getNodePath());
     unsigned int count = node.getNumDrawables();
     for ( unsigned int i = 0; i < count; i++ )
     {
-        osg::Geometry *g = node.getDrawable( i )->asGeometry();
-        if ( g != NULL )
-        {
-            pushStateSet(g->getStateSet());
-
-            processGeometry(g,m);
-
-            popStateSet(g->getStateSet());
-        }
+        node.getDrawable( i )->accept(*this);
     }
-
 
     popStateSet(node.getStateSet());
     _nameStack.pop_back();

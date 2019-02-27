@@ -140,7 +140,7 @@ void GLBufferObject::compileBuffer()
                 entry.dataSource != bd ||
                 entry.dataSize != bd->getTotalDataSize())
             {
-                unsigned int previousEndOfBufferDataMarker = computeBufferAlignment(entry.offset + entry.dataSize, bufferAlignment);
+                unsigned int previousEndOfBufferDataMarker = osg::computeBufferAlignment(entry.offset + entry.dataSize, bufferAlignment);
 
                 // OSG_NOTICE<<"GLBufferObject::compileBuffer(..) updating BufferEntry"<<std::endl;
 
@@ -158,7 +158,7 @@ void GLBufferObject::compileBuffer()
             }
             else
             {
-                newTotalSize = computeBufferAlignment(newTotalSize + entry.dataSize, bufferAlignment);
+                newTotalSize = osg::computeBufferAlignment(newTotalSize + entry.dataSize, bufferAlignment);
             }
         }
         else
@@ -620,7 +620,7 @@ osg::ref_ptr<GLBufferObject> GLBufferObjectSet::takeFromOrphans(BufferObject* bu
 
 osg::ref_ptr<GLBufferObject> GLBufferObjectSet::takeOrGenerate(BufferObject* bufferObject)
 {
-    // see if we can recyle GLBufferObject from the orphan list
+    // see if we can recycle GLBufferObject from the orphan list
     {
         OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_mutex);
         if (!_pendingOrphanedGLBufferObjects.empty())
@@ -1188,13 +1188,14 @@ void BufferObject::removeBufferData(BufferData* bd)
 
 unsigned int BufferObject::computeRequiredBufferSize() const
 {
+    unsigned int bufferAlignment = 4;
     unsigned int newTotalSize = 0;
     for(BufferDataList::const_iterator itr = _bufferDataList.begin();
         itr != _bufferDataList.end();
         ++itr)
     {
         BufferData* bd = *itr;
-        if (bd) newTotalSize += bd->getTotalDataSize();
+        if (bd) newTotalSize = osg::computeBufferAlignment(newTotalSize + bd->getTotalDataSize(), bufferAlignment);
         else
         {
             OSG_NOTICE<<"BufferObject::"<<this<<":"<<className()<<"::BufferObject::computeRequiredBufferSize() error, BufferData is 0x0"<<std::endl;
@@ -1358,6 +1359,50 @@ const DrawElements* ElementBufferObject::getDrawElements(unsigned int i) const
     return dynamic_cast<const DrawElements*>(getBufferData(i));
 }
 
+//////////////////////////////////////////////////////////////////////////////////
+//
+//  DrawIndirectBufferObject
+//
+DrawIndirectBufferObject::DrawIndirectBufferObject()
+{
+    setTarget(GL_DRAW_INDIRECT_BUFFER);
+    setUsage(GL_STATIC_DRAW_ARB);
+//    setUsage(GL_STREAM_DRAW_ARB);
+}
+
+DrawIndirectBufferObject::DrawIndirectBufferObject(const DrawIndirectBufferObject& vbo,const CopyOp& copyop):
+    BufferObject(vbo,copyop)
+{
+}
+
+DrawIndirectBufferObject::~DrawIndirectBufferObject()
+{
+}
+
+unsigned int DrawIndirectBufferObject::addArray(osg::Array* array)
+{
+    return addBufferData(array);
+}
+
+void DrawIndirectBufferObject::removeArray(osg::Array* array)
+{
+    removeBufferData(array);
+}
+
+void DrawIndirectBufferObject::setArray(unsigned int i, Array* array)
+{
+    setBufferData(i,array);
+}
+
+Array* DrawIndirectBufferObject::getArray(unsigned int i)
+{
+    return dynamic_cast<osg::Array*>(getBufferData(i));
+}
+
+const Array* DrawIndirectBufferObject::getArray(unsigned int i) const
+{
+    return dynamic_cast<const osg::Array*>(getBufferData(i));
+}
 
 //////////////////////////////////////////////////////////////////////////////////
 //

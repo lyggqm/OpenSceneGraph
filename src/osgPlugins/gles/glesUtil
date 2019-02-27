@@ -62,8 +62,9 @@ namespace glesUtil {
                 _geometry = target.getGeometry();
                 _geometry->setPrimitiveSetList(morph.getPrimitiveSetList());
 
-                _hasTexCoord = _geometry->getTexCoordArrayList().size();
-                if(!_hasTexCoord) {
+                _hasTexCoord = !_geometry->getTexCoordArrayList().empty();
+                if(_hasTexCoord)
+                {
                     _geometry->setTexCoordArrayList(morph.getTexCoordArrayList());
                 }
             }
@@ -158,7 +159,7 @@ namespace glesUtil {
     };
 
 
-    // Compact the vertex attribute arrays. Also stolen from TriStripVisitor
+    // Compact the vertex attribute arrays.
     class RemapArray : public osg::ArrayVisitor
     {
     public:
@@ -228,7 +229,7 @@ namespace glesUtil {
 
 
     // Compare vertices in a mesh using all their attributes. The vertices
-    // are identified by their index. Extracted from TriStripVisitor.cpp
+    // are identified by their index.
     struct VertexAttribComparitor : public GeometryArrayGatherer
     {
         VertexAttribComparitor(osg::Geometry& geometry) : GeometryArrayGatherer(geometry)
@@ -258,8 +259,7 @@ namespace glesUtil {
 
     // Move the values in an array to new positions, based on the
     // remapping table. remapping[i] contains element i's new position, if
-    // any.  Unlike RemapArray in TriStripVisitor, this code doesn't
-    // assume that elements only move downward in the array.
+    // any.
     class Remapper : public osg::ArrayVisitor
     {
     public:
@@ -483,7 +483,7 @@ namespace glesUtil {
             // deduplicate UVs array that were only shared within the geometry
             deduplicator.deduplicateUVs(geom);
 
-            geom.dirtyDisplayList();
+            geom.dirtyGLObjects();
         }
     };
 } // glesUtil namespace

@@ -32,9 +32,6 @@
 using namespace osgText;
 using namespace std;
 
-static osg::ApplicationUsageProxy Font_e0(osg::ApplicationUsage::ENVIRONMENTAL_VARIABLE,"OSG_TEXT_INCREMENTAL_SUBLOADING <type>","ON | OFF");
-
-
 osg::ref_ptr<Font>& Font::getDefaultFont()
 {
     static OpenThreads::Mutex s_DefaultFontMutex;
@@ -227,30 +224,24 @@ osg::ref_ptr<Font> osgText::readRefFontStream(std::istream& stream, const osgDB:
 
 Font::Font(FontImplementation* implementation):
     osg::Object(true),
-    _margin(1),
-    _marginRatio(0.02),
     _textureWidthHint(1024),
     _textureHeightHint(1024),
     _minFilterHint(osg::Texture::LINEAR_MIPMAP_LINEAR),
     _magFilterHint(osg::Texture::LINEAR),
+    _maxAnisotropy(16),
     _depth(1),
     _numCurveSamples(10)
 {
     setImplementation(implementation);
 
-    _texenv = new osg::TexEnv;
-    _stateset = new osg::StateSet;
-    _stateset->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
-
     char *ptr;
-    if( (ptr = getenv("OSG_MAX_TEXTURE_SIZE")) != 0)
+    if ((ptr = getenv("OSG_MAX_TEXTURE_SIZE")) != 0)
     {
         unsigned int osg_max_size = atoi(ptr);
 
         if (osg_max_size<_textureWidthHint) _textureWidthHint = osg_max_size;
         if (osg_max_size<_textureHeightHint) _textureHeightHint = osg_max_size;
     }
-
 }
 
 Font::~Font()
@@ -279,26 +270,6 @@ std::string Font::getFileName() const
 {
     if (_implementation.valid()) return _implementation->getFileName();
     return std::string();
-}
-
-void Font::setGlyphImageMargin(unsigned int margin)
-{
-    _margin = margin;
-}
-
-unsigned int Font::getGlyphImageMargin() const
-{
-    return _margin;
-}
-
-void Font::setGlyphImageMarginRatio(float ratio)
-{
-    _marginRatio = ratio;
-}
-
-float Font::getGlyphImageMarginRatio() const
-{
-    return _marginRatio;
 }
 
 void Font::setTextureSizeHint(unsigned int width,unsigned int height)
@@ -357,21 +328,19 @@ Glyph* Font::getGlyph(const FontResolution& fontRes, unsigned int charcode)
     FontResolution fontResUsed(0,0);
     if (_implementation->supportsMultipleFontResolutions()) fontResUsed = fontRes;
 
+    OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_glyphMapMutex);
+    FontSizeGlyphMap::iterator itr = _sizeGlyphMap.find(fontResUsed);
+    if (itr!=_sizeGlyphMap.end())
     {
-        OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_glyphMapMutex);
-        FontSizeGlyphMap::iterator itr = _sizeGlyphMap.find(fontResUsed);
-        if (itr!=_sizeGlyphMap.end())
-        {
-            GlyphMap& glyphmap = itr->second;
-            GlyphMap::iterator gitr = glyphmap.find(charcode);
-            if (gitr!=glyphmap.end()) return gitr->second.get();
-        }
+        GlyphMap& glyphmap = itr->second;
+        GlyphMap::iterator gitr = glyphmap.find(charcode);
+        if (gitr!=glyphmap.end()) return gitr->second.get();
     }
 
     Glyph* glyph = _implementation->getGlyph(fontResUsed, charcode);
     if (glyph)
     {
-        addGlyph(fontResUsed, charcode, glyph);
+        _sizeGlyphMap[fontResUsed][charcode] = glyph;
         return glyph;
     }
     else return 0;
@@ -384,21 +353,18 @@ Glyph3D* Font::getGlyph3D(const FontResolution &fontRes, unsigned int charcode)
     FontResolution fontResUsed(0,0);
     if (_implementation->supportsMultipleFontResolutions()) fontResUsed = fontRes;
 
+    OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_glyphMapMutex);
+    FontSizeGlyph3DMap::iterator itr = _sizeGlyph3DMap.find(fontResUsed);
+    if (itr!=_sizeGlyph3DMap.end())
     {
-        OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_glyphMapMutex);
-        FontSizeGlyph3DMap::iterator itr = _sizeGlyph3DMap.find(fontResUsed);
-        if (itr!=_sizeGlyph3DMap.end())
-        {
-            Glyph3DMap& glyphmap = itr->second;
-            Glyph3DMap::iterator gitr = glyphmap.find(charcode);
-            if (gitr!=glyphmap.end()) return gitr->second.get();
-        }
+        Glyph3DMap& glyphmap = itr->second;
+        Glyph3DMap::iterator gitr = glyphmap.find(charcode);
+        if (gitr!=glyphmap.end()) return gitr->second.get();
     }
 
     Glyph3D* glyph = _implementation->getGlyph3D(fontResUsed, charcode);
     if (glyph)
     {
-        OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_glyphMapMutex);
         _sizeGlyph3DMap[fontResUsed][charcode] = glyph;
         return glyph;
     }
@@ -408,9 +374,6 @@ Glyph3D* Font::getGlyph3D(const FontResolution &fontRes, unsigned int charcode)
 void Font::setThreadSafeRefUnref(bool threadSafe)
 {
    osg::Object::setThreadSafeRefUnref(threadSafe);
-
-    if (_texenv.valid()) _texenv->setThreadSafeRefUnref(threadSafe);
-    if (_stateset.valid()) _stateset->setThreadSafeRefUnref(threadSafe);
 
     for(GlyphTextureList::const_iterator itr=_glyphTextureList.begin();
         itr!=_glyphTextureList.end();
@@ -422,7 +385,12 @@ void Font::setThreadSafeRefUnref(bool threadSafe)
 
 void Font::resizeGLObjectBuffers(unsigned int maxSize)
 {
-    if (_stateset.valid()) _stateset->resizeGLObjectBuffers(maxSize);
+    for(StateSets::iterator itr = _statesets.begin();
+        itr != _statesets.end();
+        ++itr)
+    {
+        (*itr)->resizeGLObjectBuffers(maxSize);
+    }
 
     for(GlyphTextureList::const_iterator itr=_glyphTextureList.begin();
         itr!=_glyphTextureList.end();
@@ -434,7 +402,12 @@ void Font::resizeGLObjectBuffers(unsigned int maxSize)
 
 void Font::releaseGLObjects(osg::State* state) const
 {
-    if (_stateset.valid()) _stateset->releaseGLObjects(state);
+    for(StateSets::const_iterator itr = _statesets.begin();
+        itr != _statesets.end();
+        ++itr)
+    {
+        (*itr)->releaseGLObjects(state);
+    }
 
     for(GlyphTextureList::const_iterator itr=_glyphTextureList.begin();
         itr!=_glyphTextureList.end();
@@ -467,6 +440,10 @@ void Font::addGlyph(const FontResolution& fontRes, unsigned int charcode, Glyph*
 
     _sizeGlyphMap[fontRes][charcode]=glyph;
 
+}
+
+void Font::assignGlyphToGlyphTexture(Glyph* glyph, ShaderTechnique shaderTechnique)
+{
     int posX=0,posY=0;
 
     GlyphTexture* glyphTexture = 0;
@@ -474,12 +451,12 @@ void Font::addGlyph(const FontResolution& fontRes, unsigned int charcode, Glyph*
         itr!=_glyphTextureList.end() && !glyphTexture;
         ++itr)
     {
-        if ((*itr)->getSpaceForGlyph(glyph,posX,posY)) glyphTexture = itr->get();
+        if ((*itr)->getShaderTechnique()==shaderTechnique && (*itr)->getSpaceForGlyph(glyph,posX,posY)) glyphTexture = itr->get();
     }
 
     if (glyphTexture)
     {
-        //cout << "    found space for texture "<<glyphTexture<<" posX="<<posX<<" posY="<<posY<<endl;
+        //cout << "    Font::assignGlyphToGlyphTexture() found space for texture "<<glyphTexture<<" posX="<<posX<<" posY="<<posY<<endl;
     }
 
     if (!glyphTexture)
@@ -493,12 +470,11 @@ void Font::addGlyph(const FontResolution& fontRes, unsigned int charcode, Glyph*
         OSG_INFO<< "   Font " << this<< ", numberOfTexturesAllocated "<<numberOfTexturesAllocated<<std::endl;
 
         // reserve enough space for the glyphs.
-        glyphTexture->setGlyphImageMargin(_margin);
-        glyphTexture->setGlyphImageMarginRatio(_marginRatio);
+        glyphTexture->setShaderTechnique(shaderTechnique);
         glyphTexture->setTextureSize(_textureWidthHint,_textureHeightHint);
         glyphTexture->setFilter(osg::Texture::MIN_FILTER,_minFilterHint);
         glyphTexture->setFilter(osg::Texture::MAG_FILTER,_magFilterHint);
-        glyphTexture->setMaxAnisotropy(8);
+        glyphTexture->setMaxAnisotropy(_maxAnisotropy);
 
         _glyphTextureList.push_back(glyphTexture);
 
@@ -512,5 +488,4 @@ void Font::addGlyph(const FontResolution& fontRes, unsigned int charcode, Glyph*
 
     // add the glyph into the texture.
     glyphTexture->addGlyph(glyph,posX,posY);
-
 }

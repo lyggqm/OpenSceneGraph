@@ -20,6 +20,7 @@ ELSE(ANDROID)
 
 IF(DYNAMIC_OPENSCENEGRAPH)
 
+    ADD_SUBDIRECTORY(osgsimpleMDI)
     ADD_SUBDIRECTORY(osg2cpp)
     ADD_SUBDIRECTORY(osganalysis)
     ADD_SUBDIRECTORY(osganimate)
@@ -98,6 +99,7 @@ IF(DYNAMIC_OPENSCENEGRAPH)
     ADD_SUBDIRECTORY(osgreflect)
     ADD_SUBDIRECTORY(osgrobot)
     ADD_SUBDIRECTORY(osgSSBO)
+    ADD_SUBDIRECTORY(osgsampler)
     ADD_SUBDIRECTORY(osgscalarbar)
     ADD_SUBDIRECTORY(osgscribe)
     ADD_SUBDIRECTORY(osgsequence)
@@ -166,10 +168,9 @@ IF(DYNAMIC_OPENSCENEGRAPH)
     ADD_SUBDIRECTORY(osgwidgettable)
     ADD_SUBDIRECTORY(osgwidgetwindow)
     ADD_SUBDIRECTORY(osguserdata)
-
     # GL3/GL4 example
     ADD_SUBDIRECTORY(osgsimplegl3)
-
+    ADD_SUBDIRECTORY(osgbindlesstext)
     IF(OSG_CPP_EXCEPTIONS_AVAILABLE)
         ADD_SUBDIRECTORY(osgunittests)
         ADD_SUBDIRECTORY(osgmemorytest)
@@ -242,15 +243,12 @@ ELSE(DYNAMIC_OPENSCENEGRAPH)
     #needed on win32 or the linker get confused by _declspec declarations
     ADD_DEFINITIONS(-DOSG_LIBRARY_STATIC)
 
-    ADD_SUBDIRECTORY(osgstaticviewer)
-
-    # IPHONE_PORT@tom
-    IF(OSG_BUILD_PLATFORM_IPHONE OR OSG_BUILD_PLATFORM_IPHONE_SIMULATOR)
+    IF(OSG_BUILD_PLATFORM_IPHONE)
         ADD_SUBDIRECTORY(osgviewerIPhone)
+    ELSE()
+        ADD_SUBDIRECTORY(osgstaticviewer)
     ENDIF()
-     # IPHONE_PORT@tom
 
 ENDIF(DYNAMIC_OPENSCENEGRAPH)
 
 ENDIF(ANDROID)
-
